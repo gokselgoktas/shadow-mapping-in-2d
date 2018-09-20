@@ -1,0 +1,33 @@
+#pragma kernel clearShadowMap
+#pragma kernel generateShadowMap
+
+RWTexture2D<float> _ShadowCasters;
+RWTexture2D<int> _ShadowMap;
+
+[numthreads(8, 1, 1)]
+void clearShadowMap(uint3 id : SV_DispatchThreadID)
+{
+    _ShadowMap[id.xy] = 4096;
+}
+
+[numthreads(8, 8, 1)]
+void generateShadowMap(uint3 id : SV_DispatchThreadID)
+{
+    uint4 dimensions = 1;
+
+    _ShadowCasters.GetDimensions(dimensions.x, dimensions.y);
+    _ShadowMap.GetDimensions(dimensions.z, dimensions.w);
+
+    if (_ShadowCasters[id.xy] == 0.)
+    {
+        float2 uv = float2(id.xy) * rcp((float2) dimensions.xy) - .5;
+
+        float angle = atan2(uv.y, uv.x) * .318309;
+        angle = angle * .5 + .5;
+
+        uint x = uint(angle * (float) dimensions.z);
+
+        int depth = (int) (length(uv) * 4096.);
+        InterlockedMin(_ShadowMap[uint2(x, 0)], depth);
+    }
+}
